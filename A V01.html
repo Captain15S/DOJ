@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.A. DOJ - Gestion Judiciaire & Calendrier</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --doj-gold: #d4af37;
+            --doj-blue: #050b18;
+            --doj-card: #1c222d;
+            --text: #e0e0e0;
+        }
+
+        body { background-color: var(--doj-blue); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 50px; }
+
+        nav { background: #000; padding: 15px; text-align: center; border-bottom: 2px solid var(--doj-gold); position: sticky; top: 0; z-index: 100; }
+        nav button { background: transparent; border: 1px solid var(--doj-gold); color: var(--doj-gold); padding: 10px 20px; margin: 0 5px; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; }
+        nav button:hover { background: var(--doj-gold); color: black; }
+
+        .container { max-width: 1100px; margin: auto; padding: 20px; }
+        header { text-align: center; margin-bottom: 30px; }
+        .logo { width: 100px; margin-bottom: 10px; filter: drop-shadow(0 0 5px rgb(0, 0, 0)); }
+
+        .page { display: none; }
+        .active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .form-box { background: var(--doj-card); padding: 25px; border-radius: 8px; border: 1px solid #333; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; background: #0a111e; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
+        
+        table { width: 100%; border-collapse: collapse; background: var(--doj-card); margin-top: 20px; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; border-bottom: 1px solid #333; text-align: left; }
+        th { background: #000; color: var(--doj-gold); font-size: 0.8rem; }
+
+        .status { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        .status-pending { background: #f39c12; color: black; }
+        .status-valid { background: #27ae60; color: white; }
+        .status-denied { background: #c0392b; color: white; }
+
+        .btn-action { padding: 8px 12px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; margin-right: 5px; transition: 0.2s; }
+        .btn-check { background: #27ae60; color: white; }
+        .btn-check:hover { background: #2ecc71; }
+        .btn-pdf { background: #3498db; color: white; }
+        .btn-del { background: #c0392b; color: white; }
+
+        /* Modal pour la date */
+        #dateModal {
+            display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
+        }
+        .modal-content { background: var(--doj-card); margin: 15% auto; padding: 20px; border: 2px solid var(--doj-gold); width: 300px; border-radius: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <button onclick="showPage('home')"><i class="fas fa-home"></i> Accueil</button>
+    <button onclick="showPage('procureur')"><i class="fas fa-file-signature"></i> Procureur</button>
+    <button onclick="showPage('juge')"><i class="fas fa-gavel"></i> Juge</button>
+</nav>
+
+<div class="container">
+    <header>
+        <img src="file:///D:/doj/log0.png" alt="DOJ Logo" class="logo">
+        <h1 style="letter-spacing: 3px; color: var(--doj-gold); margin: 0;">DEPARTMENT OF JUSTICE</h1>
+        <p style="font-size: 0.8rem; opacity: 0.6;">SANT ANDREAS JUDICIAL SYSTEM</p>
+    </header>
+
+    <div id="home" class="page active">
+        <h2><i class="fas fa-calendar-alt"></i> Tableau des Audiences & Dossiers</h2>
+        <table id="publicTable">
+            <thead>
+                <tr>
+                    <th>N° AFFAIRE</th>
+                    <th>SUSPECT</th>
+                    <th>STATUT & RDV</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="procureur" class="page">
+        <h2><i class="fas fa-folder-plus"></i> Créer une Affaire</h2>
+        <div class="form-box">
+            <label>NOM DU SUSPECT</label>
+            <input type="text" id="procSuspect" placeholder="ex: Marcel Pignol">
+            <label>ID DOSSIER</label>
+            <input type="text" id="procID" placeholder="ex: 01">
+            <label>REQUISITIONS DU PARQUET</label>
+            <textarea id="procCharges" rows="4" placeholder="Détails des crimes..."></textarea>
+            <button class="btn-pdf" style="width: 100%; padding: 15px; cursor:pointer; font-weight: bold;" onclick="createCase()">ENVOYER AU JUGE & GENERER PDF</button>
+        </div>
+    </div>
+
+    <div id="juge" class="page">
+        <h2><i class="fas fa-user-tie"></i> Dossiers en attente de décision</h2>
+        <table id="judgeTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Suspect</th>
+                    <th>Décision</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="dateModal">
+    <div class="modal-content">
+        <h3 style="color: var(--doj-gold);">Fixer l'Audience</h3>
+        <label>DATE ET HEURE</label>
+        <input type="datetime-local" id="appointmentDate">
+        <br><br>
+        <button class="btn-action btn-check" onclick="confirmValidation()">CONFIRMER</button>
+        <button class="btn-action btn-del" onclick="closeModal()">ANNULER</button>
+    </div>
+</div>
+
+<script>
+    let cases = JSON.parse(localStorage.getItem('doj_cases')) || [];
+    let currentJudgeIndex = null;
+
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        renderTables();
+    }
+
+    function createCase() {
+        const suspect = document.getElementById('procSuspect').value;
+        const id = document.getElementById('procID').value;
+        const charges = document.getElementById('procCharges').value;
+        if(!suspect || !id) return alert("Erreur : Nom et ID obligatoires.");
+
+        const newCase = {
+            id: id,
+            suspect: suspect,
+            charges: charges,
+            status: 'PENDING',
+            creationDate: new Date().toLocaleDateString('en-US'),
+            appointment: '' // Vide jusqu'à validation du juge
+        };
+
+        cases.push(newCase);
+        saveData();
+        generatePDF(newCase);
+        alert("Affaire transmise au Juge.");
+        showPage('home');
+        // Reset form
+        document.getElementById('procSuspect').value = "";
+        document.getElementById('procID').value = "";
+        document.getElementById('procCharges').value = "";
+    }
+
+    // Fonctions Juge
+    function openValidationModal(index) {
+        currentJudgeIndex = index;
+        document.getElementById('dateModal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('dateModal').style.display = 'none';
+    }
+
+    function confirmValidation() {
+        const dateVal = document.getElementById('appointmentDate').value;
+        if(!dateVal) return alert("Veuillez choisir une date pour le procès !");
+        
+        // Formater la date en style US
+        const dateObj = new Date(dateVal);
+        const formattedDate = dateObj.toLocaleString('en-US', { 
+            weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+        });
+
+        cases[currentJudgeIndex].status = 'JUGEMENT PROGRAMMÉ';
+        cases[currentJudgeIndex].appointment = formattedDate;
+        
+        saveData();
+        closeModal();
+        renderTables();
+        alert("Verdict validé. Audience fixée au " + formattedDate);
+    }
+
+    function denyCase(index) {
+        if(confirm("Refuser ce dossier et le classer sans suite ?")) {
+            cases[index].status = 'REFUSER / CLASSÉ';
+            saveData();
+            renderTables();
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem('doj_cases', JSON.stringify(cases));
+    }
+
+    function renderTables() {
+        const publicBody = document.querySelector('#publicTable tbody');
+        const judgeBody = document.querySelector('#judgeTable tbody');
+        publicBody.innerHTML = '';
+        judgeBody.innerHTML = '';
+
+        cases.forEach((c, index) => {
+            // Vue Publique
+            let statusDisplay = c.status;
+            if(c.appointment) statusDisplay += ` - [RDV: ${c.appointment}]`;
+
+            let row = `<tr>
+                <td>AFFAIRE #${c.id}</td>
+                <td style="font-weight:bold;">${c.suspect}</td>
+                <td><span class="status ${getStatusClass(c.status)}">${statusDisplay}</span></td>
+            </tr>`;
+            publicBody.innerHTML += row;
+
+            // Vue Juge
+            if(c.status === 'PENDING') {
+                let jRow = `<tr>
+                    <td>#${c.id}</td>
+                    <td>${c.suspect}</td>
+                    <td>
+                        <button class="btn-action btn-check" onclick="openValidationModal(${index})"><i class="fas fa-calendar-check"></i> Valider & RDV</button>
+                        <button class="btn-action btn-del" onclick="denyCase(${index})"><i class="fas fa-times"></i> Refuser</button>
+                    </td>
+                </tr>`;
+                judgeBody.innerHTML += jRow;
+            }
+        });
+    }
+
+    function getStatusClass(status) {
+        if(status === 'PENDING') return 'status-pending';
+        if(status === 'JUGEMENT PROGRAMMÉ') return 'status-valid';
+        return 'status-denied';
+    }
+
+    function generatePDF(c) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(22);
+        doc.text("S.A. DEPARTMENT OF JUSTICE", 10, 20);
+        doc.setFontSize(14);
+        doc.text("DOSSIER D'ACCUSATION OFFICIEL", 10, 35);
+        doc.line(10, 40, 200, 40);
+        doc.text(`NUMÉRO D'AFFAIRE : ${c.id}`, 10, 55);
+        doc.text(`SUSPECT : ${c.suspect}`, 10, 65);
+        doc.text(`DATE D'ENVOI : ${c.creationDate}`, 10, 75);
+        doc.text("DESCRIPTION DES CHARGES :", 10, 95);
+        doc.setFontSize(11);
+        doc.text(c.charges, 10, 105, { maxWidth: 180 });
+        doc.save(`DOJ_Case_${c.id}_${c.suspect}.pdf`);
+    }
+
+    renderTables();
+</script>
+
+</body>
+</html>
